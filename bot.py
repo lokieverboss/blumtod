@@ -57,6 +57,7 @@ class BlumTod:
 
         access_token = token.get("access")
         self.log(f"{hijau}success get access token ")
+
         return access_token
 
     def solve(self, task: dict, access_token):
@@ -70,6 +71,7 @@ class BlumTod:
             "5ecf9c15-d477-420b-badf-058537489524",  # invite task
             "c4e04f2e-bbf5-4e31-917b-8bfa7c4aa3aa",  # invite task
         ]
+        
         task_id = task.get("id")
         task_title = task.get("title")
         task_status = task.get("status")
@@ -101,23 +103,28 @@ class BlumTod:
         headers = self.base_headers.copy()
         headers["authorization"] = f"Bearer {access_token}"
         res = self.http(url_task, headers)
-        for tasks in res.json():
-            if isinstance(tasks, str):
-                self.log(f"{kuning}failed get task list !")
-                return
-            for k in list(tasks.keys()):
-                if k != "tasks" and k != "subSections":
-                    continue
-                for t in tasks.get(k):
-                    if isinstance(t, dict):
-                        subtasks = t.get("subTasks")
-                        if subtasks is not None:
-                            for task in subtasks:
-                                self.solve(task, access_token)
-                            self.solve(t, access_token)
-                            continue
-                    for task in t.get("tasks"):
+        if res is None:
+            return
+    
+        try:
+            tasks_list = res.json()
+        except json.JSONDecodeError:
+            self.log(f"{merah}Failed to decode JSON response!")
+            return
+    
+        for section in tasks_list:
+            tasks = section.get("tasks")
+            if tasks is not None:
+                for task in tasks:
+                    if isinstance(task, dict):
+                        subtasks = task.get("subTasks")
+                        if subtasks:
+                            for subtask in subtasks:
+                                if isinstance(subtask, dict):
+                                    self.solve(subtask, access_token)
                         self.solve(task, access_token)
+            else:
+                self.log(f"{merah}No 'tasks' found in section or 'tasks' is None!")
 
     def set_proxy(self, proxy=None):
         self.ses = requests.Session()
